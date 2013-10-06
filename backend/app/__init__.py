@@ -1,30 +1,45 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-from flask import Flask, jsonify, request
-
-from utils import shortcuts, persona
+import json
+from flask import Flask, request, jsonify
+from flask.ext.mongoengine import MongoEngine
 
 app = Flask(__name__)
-app.config["debug"] = True
+app.config["MONGODB_SETTINGS"] = {'DB': "happy"}
+
+db = MongoEngine(app)
+
+from utils import shortcuts
+from models import User
 
 @app.route("/")
 def home():
     return jsonify({"content": "Welcome to our app."})
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/users/login", methods=["POST"])
 def login():
-    if request.method == "GET":
-        return jsonify({"content": "Login with a Persona email and assertion token."})
-
+    logged = False
     data = request.json
-    if app.config["debug"] or persona.verify_assertion(
-            data["assertion"], data["audience"]):
-        # add user to the session
+
+    if app.config["debug"]:
+        logged = True
+    elif persona.verify_assertion(data["assertion"], data["audience"]):
+        if User.objects(email=data["audience"]):
+            logged = True
+
+    if logged:
         return jsonify({"content": "Logged in."})
     else:
         return shortcuts.abort(401, {"error": "Authentication failed."})
 
-if __name__ == "__main__":
-    app.run()
+@app.route("/users/register", methods=["POST"])
+def register():
+    data = request.json
+    user = User.objects(email=data["email"])
+    if User.objects(email=data["email"]):
+        return shortcuts.abort(409, {"error": "Email account already used."})
+    else:
+        user = User(email=data["email"])
+        user.save()
+        return jsonify(json.loads(user.to_json()))
+
+if __name__ == '__main__':
+    app.run(debug=True)

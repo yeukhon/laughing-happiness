@@ -7,6 +7,8 @@ from setuptools import setup
 install_requires = [
     "flask==0.10.1",
     "requests==2.0.0",
+    "mongoengine==0.8.4",
+    "flask_mongoengine==0.7.0",
 ]
 
 setup(name="laughing-happiness",
