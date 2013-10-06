@@ -5,6 +5,11 @@
 import json
 import unittest
 import requests
+from mongoengine.connection import (
+    connect, 
+    disconnect, 
+    get_connection
+)
 
 def request(method, url, data, headers={"content-type": "application/json"}):
     req = {"GET": requests.get,
@@ -13,6 +18,16 @@ def request(method, url, data, headers={"content-type": "application/json"}):
         "put": requests.put}
     r = req[method](url, data=json.dumps(data), headers=headers)
     return r
+
+class BaseTestClass(unittest.TestCase):
+    def setUp(self):
+        self.db = connect('happy')
+        self.db.drop_database('happy')
+        disconnect()
+        self.db = connect('happy')
+
+    def tearDown(self):
+        self.db.disconnect()
 
 class TestLogin(unittest.TestCase):
     """
@@ -26,10 +41,29 @@ class TestLogin(unittest.TestCase):
 
     pass
 
-class TestUserViews(unittest.TestCase):
+class TestUserViews(BaseTestClass):
     def test_create_user(self):
         data = {"email": "foo@bar.com"}
         r = request("POST", "http://127.0.0.1:5000/users/register", data)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["email"], data["email"])
 
+class TestJobAPI(BaseTestClass):
+    def test_new_job(self):
+        data1 = {"email": "foo@bar.com"}
+        r = request("POST", "http://127.0.0.1:5000/users/register", data1)
+        self.assertEqual(r.status_code, 200)
+        
+        data2 = {"email": "foo@bar.com", 
+            "job_service": "email",
+            "job_action": "send",
+            "data": {
+                "recipient": "bar@foo.com",
+                "subject": "YOLO",
+                "body": "cheeseburger"
+            }
+        }
+
+        r = request("POST", "http://127.0.0.1:5000/jobs", data2)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["job_service"], data2["job_service"])

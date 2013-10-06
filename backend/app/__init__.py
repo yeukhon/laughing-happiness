@@ -8,7 +8,7 @@ app.config["MONGODB_SETTINGS"] = {'DB': "happy"}
 db = MongoEngine(app)
 
 from utils import shortcuts
-from models import User
+from models import User, Job
 
 @app.route("/")
 def home():
@@ -33,13 +33,26 @@ def login():
 @app.route("/users/register", methods=["POST"])
 def register():
     data = request.json
-    user = User.objects(email=data["email"])
     if User.objects(email=data["email"]):
         return shortcuts.abort(409, {"error": "Email account already used."})
     else:
         user = User(email=data["email"])
         user.save()
         return jsonify(json.loads(user.to_json()))
+
+@app.route("/jobs", methods=["POST"])
+def new_job():
+    #TODO: check if user is already in session
+    data = request.json
+    user = User.objects.get(email=data["email"])
+    if not user:
+        return shortcuts.abort(401, {"Authentication failed."})
+    job = Job(user_id=user, 
+        job_service=data["job_service"],
+        job_action=data["job_action"],
+        data=data["data"])
+    job.save()
+    return jsonify(json.loads(job.to_json()))
 
 if __name__ == '__main__':
     app.run(debug=True)
